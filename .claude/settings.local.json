@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:genshin-impact.fandom.com)",
+      "WebSearch",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(xargs -I{} taskkill //F //PID {})"
+    ]
+  }
+}
