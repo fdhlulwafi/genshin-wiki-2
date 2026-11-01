@@ -3,6 +3,10 @@ import os
 WIKI_BASE_URL = "https://genshin-impact.fandom.com"
 WIKI_API_URL = f"{WIKI_BASE_URL}/api.php"
 
+IMAGE_API_URL = "https://gi.yatta.moe/api/v2/en"
+IMAGE_ASSET_URL = "https://gi.yatta.moe/assets/UI"
+IMAGE_CATALOG_TTL = int(os.getenv("IMAGE_CATALOG_TTL", "21600"))  # 6 hours
+
 CACHE_TTL = int(os.getenv("CACHE_TTL", "1800"))  # 30 minutes
 CACHE_MAX_SIZE = int(os.getenv("CACHE_MAX_SIZE", "500"))
 

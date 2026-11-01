@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from wiki.client import WikiClient, WikiClientError
+from wiki.images import ImageCatalog
 
 
 @asynccontextmanager
@@ -11,6 +12,7 @@ async def lifespan(app: FastAPI):
     client = WikiClient()
     await client.start()
     app.state.wiki = client
+    app.state.images = ImageCatalog()
     yield
     await client.close()
 
@@ -18,7 +20,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Genshin Wiki API",
-        version="2.1.0",
+        version="2.2.0",
         description="Live-scraping API for Genshin Impact Fandom Wiki. Designed for LLM consumption.",
         lifespan=lifespan,
     )
@@ -39,7 +41,7 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "service": "Genshin Wiki API",
-            "version": "2.1.0",
+            "version": "2.2.0",
             "description": "Live-scraping API for Genshin Impact Fandom Wiki",
             "endpoints": {
                 "GET /search?q=term&limit=10": "Search wiki pages by name",
@@ -47,6 +49,7 @@ def create_app() -> FastAPI:
                 "GET /page/{title}": "Full page as clean text (add ?format=structured for infobox + keyed sections)",
                 "GET /page/{title}/sections": "List section names & indexes",
                 "GET /page/{title}/section/{index}": "Fetch single section by index",
+                "GET /images?q=name&limit=3": "Official art for a character, weapon, artifact set or enemy",
                 "GET /category/{name}?limit=50": "List pages in a wiki category",
             },
             "workflow": [

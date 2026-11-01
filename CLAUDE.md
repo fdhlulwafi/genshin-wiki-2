@@ -64,6 +64,7 @@ python main.py
 | `GET /page/{title}` | Full page as clean text + infobox, subpages and section index. `?format=structured` for keyed sections |
 | `GET /page/{title}/sections` | Section names & indexes only (lightweight) |
 | `GET /page/{title}/section/{index}` | Single section by index |
+| `GET /images?q=name&limit=3` | Official art by name, from Project Yatta (`wiki/images.py`), because Fandom's image host blocks servers with a bot check |
 | `GET /category/{name}?limit=50` | List pages in a wiki category (`subpages=true` keeps `Hu Tao/Storyline` style titles) |
 
 ## Conventions
@@ -71,4 +72,5 @@ python main.py
 - Route handlers access WikiClient via `request.app.state.wiki`
 - Errors from wiki: `PageNotFoundError` → HTTP 404, `WikiClientError` → HTTP 502
 - Parser functions are pure (take HTML string, return data) — no side effects
+- `/images` also calls gi.yatta.moe; everything else calls the wiki
 - No persistent storage, no database, no files written at runtime

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query, Request
+import httpx
+from fastapi import APIRouter, HTTPException, Query, Request
 
 router = APIRouter()
 
@@ -41,3 +42,20 @@ async def fulltext(
     """Search page text."""
     client = request.app.state.wiki
     return {"query": q, "results": await client.fulltext(q, limit=limit)}
+
+
+@router.get(
+    "/images",
+    summary="Find official game art",
+    description="Returns image URLs for a character, weapon, artifact set or enemy, matched by name.",
+)
+async def images(
+    request: Request,
+    q: str = Query(..., min_length=1, description="Name, e.g. 'Hu Tao', 'Staff of Homa', 'Dvalin'"),
+    limit: int = Query(3, ge=1, le=10, description="Max number of results to return (1–10, default 3)"),
+):
+    """Find artwork by name."""
+    try:
+        return {"query": q, "results": await request.app.state.images.find(q, limit=limit)}
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Image catalog unavailable")
