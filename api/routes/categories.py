@@ -17,8 +17,9 @@ async def get_category(
     request: Request,
     name: str,
     limit: int = Query(50, ge=1, le=500, description="Max number of pages to return (1–500, default 50)"),
+    subpages: bool = Query(False, description="Also include subpages such as 'Hu Tao/Storyline'"),
 ):
     """List pages in a wiki category."""
     client = request.app.state.wiki
-    pages = await client.get_category_members(name, limit=limit)
+    pages = await client.get_category_members(name, limit=limit, subpages=subpages)
     return {"category": name, "count": len(pages), "pages": pages}

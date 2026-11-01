@@ -4,6 +4,41 @@ import re
 from bs4 import BeautifulSoup, Tag
 
 
+BLOCK_TAGS = [
+    "p", "div", "ul", "ol", "li", "dl", "dd", "dt", "blockquote", "pre", "center",
+    "section", "article", "aside", "figure", "figcaption",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+]
+
+
+def _clean_lines(text: str) -> str:
+    """Drop soft hyphens, squeeze spaces and remove empty lines."""
+    lines = (re.sub(r"[ \t\u00a0]+", " ", line).strip() for line in text.replace("\u00ad", "").split("\n"))
+    return "\n".join(line for line in lines if line)
+
+
+def _text(el: Tag) -> str:
+    """Text of an element: inline links stay in their sentence, block elements get their own line."""
+    for br in el.find_all("br"):
+        br.replace_with("\n")
+    for block in el.find_all(BLOCK_TAGS):
+        block.insert_before("\n")
+        block.insert_after("\n")
+    return _clean_lines(el.get_text())
+
+
+def _image_text(el: Tag) -> str:
+    """Alt text of the images in an element, for values shown only as icons (rarity, element)."""
+    alts = (re.sub(r"\.(png|jpe?g|webp|gif|svg)$", "", img.get("alt", ""), flags=re.I).strip() for img in el.find_all("img"))
+    return " ".join(alt for alt in alts if alt)
+
+
+def _value(el: Tag) -> str:
+    """One-line value of a table cell or infobox field, falling back to its icons."""
+    alt = _image_text(el)
+    return " ".join(_text(el).split("\n")) or alt
+
+
 def _remove_noise(soup: BeautifulSoup) -> None:
     """Remove non-content elements from parsed HTML."""
     selectors = [
@@ -15,6 +50,7 @@ def _remove_noise(soup: BeautifulSoup) -> None:
         ".reference", "sup.reference",
         ".mbox-image", ".ambox", ".tmbox",
         ".noprint", ".mw-empty-elt",
+        ".portable-infobox", ".custom-tabs",
     ]
     for sel in selectors:
         for el in soup.select(sel):
@@ -25,56 +61,56 @@ def _table_to_text(table: Tag) -> str:
     """Convert an HTML table to pipe-delimited text."""
     rows: list[str] = []
     for tr in table.find_all("tr"):
-        cells = []
-        for td in tr.find_all(["th", "td"]):
-            text = td.get_text(" ", strip=True)
-            cells.append(text)
-        if cells:
+        cells = [_value(td) for td in tr.find_all(["th", "td"])]
+        if any(cells):
             rows.append(" | ".join(cells))
     if len(rows) >= 2:
         rows.insert(1, " | ".join(["---"] * rows[0].count("|") + ["---"]))
     return "\n".join(rows)
 
 
-def extract_infobox(soup: BeautifulSoup) -> dict[str, str] | None:
-    """Extract the portable infobox as a flat dict."""
-    infobox = soup.select_one(".portable-infobox, .pi-item")
-    if not infobox:
-        infobox_div = soup.select_one(".infobox, .infoboxtable")
-        if not infobox_div:
-            return None
-        result: dict[str, str] = {}
-        for row in infobox_div.find_all("tr"):
-            th = row.find("th")
-            td = row.find("td")
-            if th and td:
-                key = th.get_text(" ", strip=True)
-                val = td.get_text(" ", strip=True)
+def _flatten_tables(soup: BeautifulSoup) -> None:
+    """Replace every table in place, innermost first, so tables inside tabs and divs keep their rows."""
+    for table in reversed(soup.find_all("table")):
+        table.replace_with("\n" + _table_to_text(table) + "\n")
+
+
+def extract_infobox(html: str) -> dict[str, str] | None:
+    """Extract the portable infobox as a flat dict.
+
+    Character pages start with an empty placeholder infobox, so every infobox is read and merged.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    result: dict[str, str] = {}
+    for box in soup.select("aside.portable-infobox"):
+        title_el = box.select_one(".pi-title")
+        if title_el and "Name" not in result:
+            result["Name"] = _value(title_el)
+
+        for item in box.select(".pi-item.pi-data"):
+            label_el = item.select_one(".pi-data-label")
+            value_el = item.select_one(".pi-data-value")
+            if label_el and value_el:
+                key, val = _value(label_el), _value(value_el)
                 if key and val:
-                    result[key] = val
-        return result if result else None
+                    result.setdefault(key, val)
 
-    parent = infobox
-    if not infobox.select(".pi-item"):
-        parent_box = infobox.find_parent(class_="portable-infobox")
-        if parent_box:
-            parent = parent_box
+        # Short fields (quality, weapon, element) sit side by side in small tables.
+        for table in box.select("table.pi-horizontal-group"):
+            labels = [_value(th) for th in table.select("th")]
+            values = [_value(td) for td in table.select("td")]
+            for key, val in zip(labels, values):
+                if key and val:
+                    result.setdefault(key, val)
 
-    result = {}
-    title_el = parent.select_one(".pi-title")
-    if title_el:
-        result["Name"] = title_el.get_text(" ", strip=True)
+    return result or None
 
-    for item in parent.select(".pi-item.pi-data"):
-        label_el = item.select_one(".pi-data-label")
-        value_el = item.select_one(".pi-data-value")
-        if label_el and value_el:
-            key = label_el.get_text(" ", strip=True)
-            val = value_el.get_text(" ", strip=True)
-            if key and val:
-                result[key] = val
 
-    return result if result else None
+def extract_subpages(html: str) -> list[str]:
+    """Titles of the page's tabs (Hu Tao -> Hu Tao/Profile, Hu Tao/Storyline, ...), where lore usually lives."""
+    soup = BeautifulSoup(html, "html.parser")
+    links = soup.select(".custom-tabs a[title]")
+    return list(dict.fromkeys(a["title"] for a in links))
 
 
 def html_to_sections(html: str) -> list[dict]:
@@ -84,6 +120,7 @@ def html_to_sections(html: str) -> list[dict]:
     """
     soup = BeautifulSoup(html, "html.parser")
     _remove_noise(soup)
+    _flatten_tables(soup)
 
     sections: list[dict] = []
     current_title = "Introduction"
@@ -94,7 +131,7 @@ def html_to_sections(html: str) -> list[dict]:
 
     for child in content_div.children:
         if not isinstance(child, Tag):
-            text = str(child).strip()
+            text = _clean_lines(str(child))
             if text:
                 current_parts.append(text)
             continue
@@ -107,13 +144,11 @@ def html_to_sections(html: str) -> list[dict]:
             })
             current_index += 1
             level = int(child.name[1])
-            heading_text = child.get_text(" ", strip=True)
+            heading_text = _value(child)
             current_title = heading_text
             current_parts = [f"{'#' * level} {heading_text}"]
-        elif child.name == "table":
-            current_parts.append(_table_to_text(child))
         else:
-            text = child.get_text("\n", strip=True)
+            text = _text(child)
             if text:
                 current_parts.append(text)
 

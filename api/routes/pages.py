@@ -1,19 +1,19 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from wiki.client import PageNotFoundError
-from wiki.parser import extract_infobox, html_to_clean_text, html_to_sections, section_list
-from bs4 import BeautifulSoup
+from wiki.parser import extract_infobox, extract_subpages, html_to_clean_text, html_to_sections, section_list
 
 router = APIRouter()
 
 
 @router.get(
-    "/page/{title}/sections",
+    "/page/{title:path}/sections",
     summary="List sections of a wiki page",
     description=(
         "Returns all section names and their numeric indexes for a given wiki page. "
         "Use this as a lightweight preview before fetching a specific section. "
-        "Titles use underscores (e.g. 'Hu_Tao'). Section index 0 is typically the introduction."
+        "Titles use underscores (e.g. 'Hu_Tao') and may contain slashes (e.g. 'Hu_Tao/Storyline'). "
+        "Section index 0 is typically the introduction. 'subpages' lists the page's tabs."
     ),
 )
 async def get_sections(request: Request, title: str):
@@ -24,11 +24,11 @@ async def get_sections(request: Request, title: str):
     except PageNotFoundError:
         raise HTTPException(status_code=404, detail=f"Page not found: {title}")
 
-    return {"title": title, "sections": section_list(html)}
+    return {"title": title, "subpages": extract_subpages(html), "sections": section_list(html)}
 
 
 @router.get(
-    "/page/{title}/section/{index}",
+    "/page/{title:path}/section/{index:int}",
     summary="Get a single section from a wiki page",
     description=(
         "Fetches the content of one section from a wiki page by its numeric index. "
@@ -53,7 +53,7 @@ async def get_section(request: Request, title: str, index: int):
 
 
 @router.get(
-    "/page/{title}",
+    "/page/{title:path}",
     summary="Get full wiki page content",
     description=(
         "Fetches the full content of a Genshin Impact wiki page. "
@@ -81,17 +81,18 @@ async def get_page(
         raise HTTPException(status_code=404, detail=f"Page not found: {title}")
 
     if format == "structured":
-        soup = BeautifulSoup(html, "html.parser")
-        infobox = extract_infobox(soup)
         sections = html_to_sections(html)
         return {
             "title": title,
-            "infobox": infobox,
+            "infobox": extract_infobox(html),
+            "subpages": extract_subpages(html),
             "sections": {s["title"]: s["content"] for s in sections},
         }
 
     return {
         "title": title,
+        "infobox": extract_infobox(html),
+        "subpages": extract_subpages(html),
         "content": html_to_clean_text(html),
         "sections": section_list(html),
     }

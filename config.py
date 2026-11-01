@@ -3,7 +3,7 @@ import os
 WIKI_BASE_URL = "https://genshin-impact.fandom.com"
 WIKI_API_URL = f"{WIKI_BASE_URL}/api.php"
 
-CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes
+CACHE_TTL = int(os.getenv("CACHE_TTL", "1800"))  # 30 minutes
 CACHE_MAX_SIZE = int(os.getenv("CACHE_MAX_SIZE", "500"))
 
 REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "0.15"))  # seconds between requests

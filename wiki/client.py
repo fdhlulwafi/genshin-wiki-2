@@ -64,11 +64,11 @@ class WikiClient:
                     self._cache.set(cache_key, data)
                     await asyncio.sleep(REQUEST_DELAY)
                     return data
-                except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+                except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as exc:
                     last_exc = exc
-                    wait = 2 ** attempt
-                    log.warning("Wiki API attempt %d failed: %s — retrying in %ds", attempt + 1, exc, wait)
-                    await asyncio.sleep(wait)
+            wait = 2 ** attempt
+            log.warning("Wiki API attempt %d failed: %s — retrying in %ds", attempt + 1, last_exc, wait)
+            await asyncio.sleep(wait)
 
         raise WikiClientError(f"Wiki API request failed after {MAX_RETRIES} retries") from last_exc
 
@@ -87,6 +87,19 @@ class WikiClient:
             return data[1]
         return []
 
+    async def fulltext(self, query: str, limit: int = 10) -> list[str]:
+        """Search inside page text. Returns matching titles."""
+        data = await self._get({
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "srlimit": str(limit),
+            "srnamespace": "0",
+            "format": "json",
+        })
+        hits = data.get("query", {}).get("search", [])
+        return [h["title"] for h in hits]
+
     async def get_page_html(self, title: str) -> str:
         """Fetch rendered HTML for a page."""
         data = await self._get({
@@ -99,13 +112,13 @@ class WikiClient:
         parse = data.get("parse")
         if not parse:
             error = data.get("error", {})
-            if error.get("code") == "missingtitle":
+            if error.get("code") in ("missingtitle", "invalidtitle"):
                 raise PageNotFoundError(f"Page not found: {title}")
-            raise PageNotFoundError(f"Page not found: {title}")
+            raise WikiClientError(f"Wiki API error for {title}: {error.get('code', 'no parse result')}")
         return parse["text"]["*"]
 
-    async def get_category_members(self, category: str, limit: int = 50) -> list[str]:
-        """List page titles in a category."""
+    async def get_category_members(self, category: str, limit: int = 50, subpages: bool = False) -> list[str]:
+        """List page titles in a category, leaving out subpages like 'Hu Tao/Storyline' unless asked."""
         results: list[str] = []
         params: dict = {
             "action": "query",
@@ -119,7 +132,7 @@ class WikiClient:
         while len(results) < limit:
             data = await self._get(params)
             members = data.get("query", {}).get("categorymembers", [])
-            results.extend(m["title"] for m in members)
+            results.extend(m["title"] for m in members if subpages or "/" not in m["title"])
 
             cont = data.get("continue", {}).get("cmcontinue")
             if not cont or len(results) >= limit:
