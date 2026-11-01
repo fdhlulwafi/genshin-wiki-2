@@ -65,6 +65,7 @@ python main.py
 | `GET /page/{title}/sections` | Section names & indexes only (lightweight) |
 | `GET /page/{title}/section/{index}` | Single section by index |
 | `GET /images?q=name&limit=3` | Official art by name, from Project Yatta (`wiki/images.py`), because Fandom's image host blocks servers with a bot check |
+| `GET /art?q=Hu Tao Birthday` | Wiki picture files by name prefix (birthday art, cards, wish art); `GET /art/file/{name}` serves one as JPEG. Fandom's image host blocks servers, so the bytes come through images.weserv.nl (`WikiClient.picture`) |
 | `GET /category/{name}?limit=50` | List pages in a wiki category (`subpages=true` keeps `Hu Tao/Storyline` style titles) |
 
 ## Conventions

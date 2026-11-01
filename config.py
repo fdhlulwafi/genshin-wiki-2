@@ -16,3 +16,9 @@ REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "15"))
 
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
+
+PUBLIC_URL = os.getenv("PUBLIC_URL", "https://genshin-wiki.fiverse.my")
+# Fandom's image host (static.wikia.nocookie.net) answers servers with a bot check, so wiki art goes through this public image proxy.
+IMAGE_PROXY_URL = "https://images.weserv.nl/"
+ART_WIDTH = int(os.getenv("ART_WIDTH", "1280"))
+ART_CACHE_SIZE = int(os.getenv("ART_CACHE_SIZE", "40"))  # pictures kept in memory, ~300 KB each

@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Genshin Wiki API",
-        version="2.2.0",
+        version="2.3.0",
         description="Live-scraping API for Genshin Impact Fandom Wiki. Designed for LLM consumption.",
         lifespan=lifespan,
     )
@@ -29,11 +29,13 @@ def create_app() -> FastAPI:
     async def wiki_error(request: Request, exc: WikiClientError):
         return JSONResponse(status_code=502, content={"detail": str(exc)})
 
+    from api.routes.art import router as art_router
     from api.routes.search import router as search_router
     from api.routes.pages import router as pages_router
     from api.routes.categories import router as categories_router
 
     app.include_router(search_router, tags=["Search"])
+    app.include_router(art_router, tags=["Art"])
     app.include_router(pages_router, tags=["Pages"])
     app.include_router(categories_router, tags=["Categories"])
 
@@ -41,7 +43,7 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "service": "Genshin Wiki API",
-            "version": "2.2.0",
+            "version": "2.3.0",
             "description": "Live-scraping API for Genshin Impact Fandom Wiki",
             "endpoints": {
                 "GET /search?q=term&limit=10": "Search wiki pages by name",
@@ -50,6 +52,7 @@ def create_app() -> FastAPI:
                 "GET /page/{title}/sections": "List section names & indexes",
                 "GET /page/{title}/section/{index}": "Fetch single section by index",
                 "GET /images?q=name&limit=3": "Official art for a character, weapon, artifact set or enemy",
+                "GET /art?q=Hu Tao Birthday": "Wiki artwork files by name prefix (birthday art, cards, wish art), each with a JPEG url",
                 "GET /category/{name}?limit=50": "List pages in a wiki category",
             },
             "workflow": [
