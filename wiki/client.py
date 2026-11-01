@@ -108,6 +108,12 @@ class WikiClient:
         hits = data.get("query", {}).get("search", [])
         return [h["title"] for h in hits]
 
+    async def canonical_name(self, name: str) -> str | None:
+        """Where the wiki redirects a name: Scaramouche -> Wanderer, Morax -> Zhongli. None if it does not."""
+        data = await self._get({"action": "query", "titles": name, "redirects": "1", "format": "json"})
+        redirects = data.get("query", {}).get("redirects")
+        return redirects[-1]["to"].split("/")[0] if redirects else None
+
     async def find_files(self, query: str, limit: int = 20) -> list[dict]:
         """Wiki picture files whose name starts with the query ('Hu Tao Birthday'), else files matching it."""
         data = await self._get({

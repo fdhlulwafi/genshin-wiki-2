@@ -30,6 +30,10 @@ KINDS = {"avatar": ("character", _character), "weapon": ("weapon", _weapon),
          "reliquary": ("artifact", _artifact), "monster": ("enemy", _enemy)}
 
 
+# Names with their own wiki page, so no redirect leads to the playable character.
+ALIASES = {"ei": "Raiden Shogun", "childe": "Tartaglia", "ajax": "Tartaglia"}
+
+
 def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
@@ -54,10 +58,18 @@ class ImageCatalog:
         self._items = list(items.values())
         self._loaded = time.monotonic()
 
-    async def find(self, query: str, limit: int = 3) -> list[dict]:
-        """Exact name first, then names containing the query."""
-        await self._load()
+    def _match(self, query: str) -> list[dict]:
+        """Exact name first, then names containing the query as whole words (so 'Ei' is not Beidou)."""
         q = _norm(query)
         exact = [i for i in self._items if _norm(i["name"]) == q]
-        partial = [i for i in self._items if q in _norm(i["name"]) and i not in exact]
-        return (exact + partial)[:limit]
+        partial = [i for i in self._items if f" {q} " in f" {_norm(i['name'])} " and i not in exact]
+        return exact + partial
+
+    async def find(self, query: str, canonical: str | None = None, limit: int = 3) -> list[dict]:
+        """Art for a name. canonical is the wiki's own name for it, e.g. Wanderer for Scaramouche."""
+        await self._load()
+        for name in (canonical, query):
+            found = self._match(ALIASES.get(_norm(name), name)) if name else []
+            if found:
+                return found[:limit]
+        return []

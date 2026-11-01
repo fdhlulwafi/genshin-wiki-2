@@ -56,6 +56,7 @@ async def images(
 ):
     """Find artwork by name."""
     try:
-        return {"query": q, "results": await request.app.state.images.find(q, limit=limit)}
+        canonical = await request.app.state.wiki.canonical_name(q)
+        return {"query": q, "results": await request.app.state.images.find(q, canonical, limit=limit)}
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Image catalog unavailable")

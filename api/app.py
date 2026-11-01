@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Genshin Wiki API",
-        version="2.3.0",
+        version="2.3.1",
         description="Live-scraping API for Genshin Impact Fandom Wiki. Designed for LLM consumption.",
         lifespan=lifespan,
     )
@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "service": "Genshin Wiki API",
-            "version": "2.3.0",
+            "version": "2.3.1",
             "description": "Live-scraping API for Genshin Impact Fandom Wiki",
             "endpoints": {
                 "GET /search?q=term&limit=10": "Search wiki pages by name",
